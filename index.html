@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<!-- 触屏适配：禁止缩放，适配平板/手机 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小动物乐园</title>
+<style>
+  /* ========== 基础与重置 ========== */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html, body { height: 100%; }
+  body {
+    /* 中文字体栈（禁止斜体中文，全文不使用 font-style: italic） */
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Source Han Sans SC", sans-serif;
+    background: #FFF7EA; /* 温暖奶油色背景 */
+    color: #4A3728;
+    overflow: hidden;
+    /* 触屏优化：单击即响应、禁止长按选中与拖拽 */
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  img { -webkit-user-drag: none; }
+
+  /* 弹簧感回弹曲线（过冲） */
+  :root { --spring: cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+  /* ========== 屏幕管理 ========== */
+  .screen {
+    position: fixed;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    padding: 20px;
+  }
+  .screen.active { display: flex; }
+
+  /* ========== 通用大按钮 ========== */
+  .big-btn {
+    border: none;
+    border-radius: 28px; /* 超大圆角 */
+    font-family: inherit;
+    font-weight: 800;
+    color: #fff;
+    cursor: pointer;
+    min-height: 96px; /* 超大可点目标 */
+    box-shadow: 0 8px 0 rgba(0, 0, 0, 0.12);
+    transition: transform 0.18s var(--spring), box-shadow 0.18s var(--spring);
+  }
+  .big-btn:active {
+    transform: scale(0.94);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
+  }
+
+  /* 回家 / 返回按钮：足够大，但避开屏幕中心高频点击区 */
+  .home-btn {
+    border: none;
+    border-radius: 22px;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 26px;
+    color: #fff;
+    background: #9B8C7A;
+    padding: 18px 30px;
+    min-height: 72px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 rgba(0, 0, 0, 0.12);
+    transition: transform 0.18s var(--spring);
+  }
+  .home-btn:active { transform: scale(0.92); }
+
+  /* ========== 首页 ========== */
+  #screen-home {
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+  }
+  .game-title {
+    font-size: clamp(48px, 9vw, 88px);
+    font-weight: 900;
+    color: #E8552F;
+    letter-spacing: 6px;
+    text-shadow: 0 4px 0 rgba(232, 85, 47, 0.15);
+  }
+  .home-entries {
+    display: flex;
+    gap: 28px;
+    width: min(1060px, 100%);
+    flex: 1;
+    max-height: 62vh;
+    min-height: 320px;
+  }
+  .entry-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    font-size: clamp(34px, 5vw, 52px);
+    line-height: 1.25;
+    border-radius: 36px;
+  }
+  .entry-block .sub {
+    font-size: clamp(22px, 2.8vw, 30px);
+    font-weight: 700;
+    opacity: 0.92;
+  }
+  .entry-toddler { background: #45B7E8; } /* 天蓝 */
+  .entry-brother { background: #7BC950; } /* 草绿 */
+  @media (max-width: 700px) {
+    .home-entries { flex-direction: column; max-height: none; }
+  }
+
+  /* ========== 弟弟模式：拍拍乐园 ========== */
+  #screen-toddler { padding: 0; }
+  #toddler-field {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+  }
+  #toddler-home {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    z-index: 50;
+  }
+  .pop-animal {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -62%);
+    cursor: pointer;
+    z-index: 10;
+  }
+  .pop-animal .pa-emoji {
+    line-height: 1.1;
+    display: block;
+    animation: pop-in 0.45s var(--spring);
+  }
+  .pop-animal .pa-name {
+    margin-top: 6px;
+    font-size: 36px;
+    font-weight: 900;
+    color: #4A3728;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 18px;
+    padding: 4px 18px;
+    animation: pop-in 0.45s var(--spring);
+  }
+  .pop-animal.fade-out {
+    transition: opacity 0.6s ease;
+    opacity: 0;
+  }
+  .pop-animal.jump .pa-emoji {
+    animation: jump 0.5s var(--spring);
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+  }
+  @keyframes jump {
+    0% { transform: translateY(0) scale(1); }
+    40% { transform: translateY(-36px) scale(1.15); }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  /* ========== 哥哥模式公共：顶栏 ========== */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .star-pill {
+    margin-left: auto;
+    background: #FFD23F; /* 明黄 */
+    color: #7A5200;
+    font-size: 30px;
+    font-weight: 900;
+    border-radius: 999px;
+    padding: 12px 28px;
+    box-shadow: 0 5px 0 rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+  }
+  .round-pill {
+    background: #fff;
+    color: #8A6D4F;
+    font-size: 22px;
+    font-weight: 800;
+    border-radius: 999px;
+    padding: 12px 22px;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.08);
+    white-space: nowrap;
+  }
+
+  /* ========== 哥哥模式主菜单 ========== */
+  #screen-brother .menu-blocks {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    justify-content: center;
+  }
+  .menu-block {
+    flex: 1;
+    max-height: 30vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: clamp(32px, 4.5vw, 46px);
+    border-radius: 32px;
+  }
+  .menu-block .sub {
+    font-size: clamp(20px, 2.5vw, 26px);
+    font-weight: 700;
+    opacity: 0.92;
+  }
+  .mb-find { background: #FF6B57; }   /* 番茄红 */
+  .mb-count { background: #FF9F2E; }  /* 橙 */
+  .mb-memory { background: #45B7E8; } /* 天蓝 */
+
+  /* ========== 游戏 1：听音找动物 ========== */
+  .prompt-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  .prompt-text {
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 900;
+    color: #4A3728;
+  }
+  .replay-btn {
+    border: none;
+    border-radius: 20px;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 24px;
+    color: #fff;
+    background: #B388FF;
+    padding: 14px 26px;
+    min-height: 64px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 rgba(0, 0, 0, 0.12);
+    transition: transform 0.18s var(--spring);
+  }
+  .replay-btn:active { transform: scale(0.92); }
+  .options-row {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+  }
+  .animal-option {
+    width: min(28vw, 260px);
+    aspect-ratio: 1;
+    min-width: 130px;
+    border: none;
+    border-radius: 34px;
+    cursor: pointer;
+    font-size: clamp(72px, 12vw, 130px);
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 0 rgba(0, 0, 0, 0.12);
+    transition: transform 0.25s var(--spring);
+  }
+  .animal-option:active { transform: scale(0.93); }
+  .animal-option.correct { animation: win-bounce 0.7s var(--spring); }
+  .animal-option.shake { animation: shake 0.5s ease; }
+  .opt-c0 { background: #FFE066; }
+  .opt-c1 { background: #9BE564; }
+  .opt-c2 { background: #7FD4F0; }
+  @keyframes win-bounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.22) rotate(4deg); }
+    70% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-16px); }
+    40% { transform: translateX(14px); }
+    60% { transform: translateX(-10px); }
+    80% { transform: translateX(8px); }
+  }
+
+  /* ========== 游戏 2：数一数 ========== */
+  #count-field {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    align-content: center;
+    gap: 18px;
+    padding: 10px;
+  }
+  .count-animal {
+    font-size: clamp(72px, 11vw, 120px);
+    line-height: 1;
+    animation: pop-in 0.5s var(--spring) backwards;
+  }
+  .numbers-row {
+    display: flex;
+    justify-content: center;
+    gap: 26px;
+    padding: 18px 0 26px;
+  }
+  .num-btn {
+    width: min(24vw, 180px);
+    aspect-ratio: 1;
+    min-width: 96px;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 900;
+    font-size: clamp(56px, 8vw, 84px);
+    color: #fff;
+    box-shadow: 0 8px 0 rgba(0, 0, 0, 0.12);
+    transition: transform 0.18s var(--spring);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .num-btn .cn { font-size: clamp(20px, 2.6vw, 28px); font-weight: 800; opacity: 0.95; }
+  .num-btn:active { transform: scale(0.92); }
+  .num-btn.correct { animation: win-bounce 0.7s var(--spring); }
+  .num-btn.shake { animation: shake 0.5s ease; }
+  .num-c0 { background: #FF6B57; }
+  .num-c1 { background: #45B7E8; }
+  .num-c2 { background: #7BC950; }
+
+  /* ========== 游戏 3：动物配对 ========== */
+  #memory-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(110px, 220px));
+    grid-auto-rows: minmax(120px, 1fr);
+    gap: 18px;
+    align-content: center;
+    justify-content: center;
+    padding-bottom: 12px;
+  }
+  .mem-card {
+    perspective: 700px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+  }
+  .mem-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 130px;
+    transform-style: preserve-3d;
+    transition: transform 0.55s var(--spring); /* 弹簧翻转 */
+  }
+  .mem-card.flipped .mem-inner { transform: rotateY(180deg); }
+  .mem-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    box-shadow: 0 6px 0 rgba(0, 0, 0, 0.12);
+  }
+  .mem-front {
+    background: #FF9F2E;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: clamp(48px, 7vw, 72px);
+    font-weight: 900;
+  }
+  .mem-back {
+    background: #fff;
+    transform: rotateY(180deg);
+    font-size: clamp(64px, 9vw, 100px);
+    line-height: 1;
+  }
+  .mem-card.matched .mem-back { background: #D8F5C0; }
+  .mem-card.matched { animation: win-bounce 0.7s var(--spring); cursor: default; }
+
+  /* ========== 结算浮层 ========== */
+  .summary-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(74, 55, 40, 0.35);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .summary-mask.show { display: flex; }
+  .summary-box {
+    background: #FFF7EA;
+    border-radius: 36px;
+    padding: 44px 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+    box-shadow: 0 16px 0 rgba(0, 0, 0, 0.12);
+    animation: pop-in 0.45s var(--spring);
+    max-width: 92vw;
+  }
+  .summary-text {
+    font-size: clamp(34px, 5vw, 52px);
+    font-weight: 900;
+    color: #E8552F;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .summary-btns { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .summary-btn {
+    border: none;
+    border-radius: 24px;
+    font-family: inherit;
+    font-weight: 800;
+    font-size: 28px;
+    color: #fff;
+    padding: 20px 36px;
+    min-height: 84px;
+    min-width: 160px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 rgba(0, 0, 0, 0.12);
+    transition: transform 0.18s var(--spring);
+  }
+  .summary-btn:active { transform: scale(0.93); }
+  .sb-again { background: #7BC950; }
+  .sb-back { background: #FF9F2E; }
+
+  /* ========== 撒花 / 星星奖励 ========== */
+  #confetti-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 200;
+  }
+  .confetti {
+    position: absolute;
+    top: -8vh;
+    animation: confetti-fall linear forwards;
+  }
+  @keyframes confetti-fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translateY(115vh) rotate(560deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ================= 首页 ================= -->
+  <div id="screen-home" class="screen active">
+    <h1 class="game-title">小动物乐园</h1>
+    <div class="home-entries">
+      <button class="big-btn entry-block entry-toddler" id="entry-toddler">
+        <span>拍拍乐园 · 弟弟模式</span>
+        <span class="sub">随便拍，有惊喜</span>
+      </button>
+      <button class="big-btn entry-block entry-brother" id="entry-brother">
+        <span>哥哥挑战 · 5岁</span>
+        <span class="sub">闯关赢星星</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= 弟弟模式：拍拍乐园 ================= -->
+  <div id="screen-toddler" class="screen">
+    <div id="toddler-field">
+      <button class="home-btn" id="toddler-home">回家</button>
+    </div>
+  </div>
+
+  <!-- ================= 哥哥模式：主菜单 ================= -->
+  <div id="screen-brother" class="screen">
+    <div class="top-bar">
+      <button class="home-btn" id="brother-home">回家</button>
+      <div class="star-pill">⭐ × <span class="star-count">0</span></div>
+    </div>
+    <div class="menu-blocks">
+      <button class="big-btn menu-block mb-find" id="menu-find">
+        <span>听音找动物</span>
+        <span class="sub">竖起小耳朵，找对得星星</span>
+      </button>
+      <button class="big-btn menu-block mb-count" id="menu-count">
+        <span>数一数</span>
+        <span class="sub">数对小动物，得星星</span>
+      </button>
+      <button class="big-btn menu-block mb-memory" id="menu-memory">
+        <span>动物配对</span>
+        <span class="sub">翻出一样的动物，得 3 颗星</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= 游戏 1：听音找动物 ================= -->
+  <div id="screen-find" class="screen">
+    <div class="top-bar">
+      <button class="home-btn" id="find-back">返回</button>
+      <div class="round-pill">第 <span id="find-round">1</span> / 5 题</div>
+      <div class="star-pill">⭐ × <span class="star-count">0</span></div>
+    </div>
+    <div class="prompt-bar">
+      <div class="prompt-text">听一听，找一找！</div>
+      <button class="replay-btn" id="find-replay">再听一遍</button>
+    </div>
+    <div class="options-row" id="find-options"></div>
+    <!-- 一轮结束结算 -->
+    <div class="summary-mask" id="find-summary">
+      <div class="summary-box">
+        <div class="summary-text" id="find-summary-text"></div>
+        <div class="summary-btns">
+          <button class="summary-btn sb-again" id="find-again">再玩一轮</button>
+          <button class="summary-btn sb-back" id="find-quit">返回</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 游戏 2：数一数 ================= -->
+  <div id="screen-count" class="screen">
+    <div class="top-bar">
+      <button class="home-btn" id="count-back">返回</button>
+      <div class="round-pill">第 <span id="count-round">1</span> / 5 题</div>
+      <div class="star-pill">⭐ × <span class="star-count">0</span></div>
+    </div>
+    <div class="prompt-bar">
+      <div class="prompt-text" id="count-question">数一数，有几只？</div>
+      <button class="replay-btn" id="count-replay">再听一遍</button>
+    </div>
+    <div id="count-field"></div>
+    <div class="numbers-row" id="count-numbers"></div>
+    <div class="summary-mask" id="count-summary">
+      <div class="summary-box">
+        <div class="summary-text" id="count-summary-text"></div>
+        <div class="summary-btns">
+          <button class="summary-btn sb-again" id="count-again">再玩一轮</button>
+          <button class="summary-btn sb-back" id="count-quit">返回</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 游戏 3：动物配对 ================= -->
+  <div id="screen-memory" class="screen">
+    <div class="top-bar">
+      <button class="home-btn" id="memory-back">返回</button>
+      <div class="star-pill">⭐ × <span class="star-count">0</span></div>
+    </div>
+    <div id="memory-grid"></div>
+    <div class="summary-mask" id="memory-summary">
+      <div class="summary-box">
+        <div class="summary-text">全部配对成功！<br>赢得 3 颗 ⭐</div>
+        <div class="summary-btns">
+          <button class="summary-btn sb-again" id="memory-again">再玩一局</button>
+          <button class="summary-btn sb-back" id="memory-quit">返回</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 撒花层 -->
+  <div id="confetti-layer"></div>
+
+<script>
+'use strict';
+
+/* =====================================================
+ * 数据：12 种动物（大号 emoji + 中文名）
+ * ===================================================== */
+const ANIMALS = [
+  { id: 'dog',      name: '小狗',   emoji: '🐶' },
+  { id: 'cat',      name: '小猫',   emoji: '🐱' },
+  { id: 'chick',    name: '小鸡',   emoji: '🐥' },
+  { id: 'duck',     name: '小鸭子', emoji: '🦆' },
+  { id: 'frog',     name: '小青蛙', emoji: '🐸' },
+  { id: 'cow',      name: '奶牛',   emoji: '🐮' },
+  { id: 'sheep',    name: '小羊',   emoji: '🐑' },
+  { id: 'lion',     name: '狮子',   emoji: '🦁' },
+  { id: 'pig',      name: '小猪',   emoji: '🐷' },
+  { id: 'rabbit',   name: '小兔子', emoji: '🐰' },
+  { id: 'elephant', name: '大象',   emoji: '🐘' },
+  { id: 'tiger',    name: '老虎',   emoji: '🐯' }
+];
+const CN_NUM = ['零', '一', '二', '三', '四', '五', '六'];
+
+/* =====================================================
+ * 声音通道 1：WebAudio 振荡器合成动物音效
+ * 首次用户交互（pointerdown）后才初始化 AudioContext
+ * ===================================================== */
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    } catch (e) { audioCtx = null; }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(function () {});
+  }
+}
+document.addEventListener('pointerdown', ensureAudio);
+
+/** 播放一个音：freq 起始频率，freqEnd 滑音目标，start 相对延迟秒 */
+function playTone(opt) {
+  if (!audioCtx) return;
+  try {
+    const t0 = audioCtx.currentTime + (opt.start || 0);
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = opt.type || 'sine';
+    osc.frequency.setValueAtTime(opt.freq, t0);
+    if (opt.freqEnd) osc.frequency.exponentialRampToValueAtTime(opt.freqEnd, t0 + opt.dur);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(opt.vol || 0.25, t0 + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + opt.dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t0);
+    osc.stop(t0 + opt.dur + 0.05);
+  } catch (e) { /* 静默 */ }
+}
+
+/* 每种动物的特征音效（不同音高 / 节奏 / 波形组合） */
+const SOUND_RECIPES = {
+  dog: [ // 两声短促低方波：汪！汪！
+    { freq: 180, type: 'square', dur: 0.09, vol: 0.30 },
+    { freq: 165, type: 'square', start: 0.15, dur: 0.11, vol: 0.30 }
+  ],
+  cat: [ // 滑音：喵～
+    { freq: 550, freqEnd: 900, type: 'sawtooth', dur: 0.20, vol: 0.14 },
+    { freq: 900, freqEnd: 430, type: 'sawtooth', start: 0.20, dur: 0.26, vol: 0.14 }
+  ],
+  chick: [ // 高频三连啾啾啾
+    { freq: 1300, freqEnd: 1650, type: 'sine', dur: 0.06, vol: 0.20 },
+    { freq: 1350, freqEnd: 1700, type: 'sine', start: 0.10, dur: 0.06, vol: 0.20 },
+    { freq: 1400, freqEnd: 1750, type: 'sine', start: 0.20, dur: 0.06, vol: 0.20 }
+  ],
+  duck: [ // 快速三连音：嘎嘎嘎
+    { freq: 320, type: 'square', dur: 0.06, vol: 0.20 },
+    { freq: 300, type: 'square', start: 0.09, dur: 0.06, vol: 0.20 },
+    { freq: 275, type: 'square', start: 0.18, dur: 0.08, vol: 0.20 }
+  ],
+  frog: [ // 低沉两下：呱、呱
+    { freq: 165, freqEnd: 110, type: 'sine', dur: 0.16, vol: 0.32 },
+    { freq: 165, freqEnd: 110, type: 'sine', start: 0.24, dur: 0.16, vol: 0.32 }
+  ],
+  cow: [ // 长低音：哞～
+    { freq: 135, freqEnd: 105, type: 'sawtooth', dur: 0.65, vol: 0.18 }
+  ],
+  sheep: [ // 颤抖音三连：咩咩咩
+    { freq: 420, freqEnd: 375, type: 'triangle', dur: 0.12, vol: 0.22 },
+    { freq: 445, freqEnd: 390, type: 'triangle', start: 0.14, dur: 0.12, vol: 0.22 },
+    { freq: 410, freqEnd: 355, type: 'triangle', start: 0.28, dur: 0.16, vol: 0.22 }
+  ],
+  lion: [ // 低吼：嗷呜
+    { freq: 115, freqEnd: 65, type: 'sawtooth', dur: 0.75, vol: 0.30 }
+  ],
+  pig: [ // 两声短哼：哼哼
+    { freq: 290, freqEnd: 200, type: 'square', dur: 0.07, vol: 0.22 },
+    { freq: 310, freqEnd: 210, type: 'square', start: 0.13, dur: 0.07, vol: 0.22 }
+  ],
+  rabbit: [ // 轻快地跳两下：啵啵
+    { freq: 520, freqEnd: 940, type: 'sine', dur: 0.09, vol: 0.20 },
+    { freq: 560, freqEnd: 990, type: 'sine', start: 0.14, dur: 0.09, vol: 0.20 }
+  ],
+  elephant: [ // 象鸣：先升后降
+    { freq: 280, freqEnd: 640, type: 'sawtooth', dur: 0.24, vol: 0.18 },
+    { freq: 640, freqEnd: 330, type: 'sawtooth', start: 0.24, dur: 0.30, vol: 0.18 }
+  ],
+  tiger: [ // 低吼咆哮
+    { freq: 100, freqEnd: 72, type: 'sawtooth', dur: 0.55, vol: 0.30 }
+  ]
+};
+
+function playAnimalSound(animal) {
+  ensureAudio();
+  const recipe = SOUND_RECIPES[animal.id];
+  if (!recipe) return;
+  recipe.forEach(playTone);
+}
+
+/* =====================================================
+ * 声音通道 2：speechSynthesis 中文语音（静默降级）
+ * ===================================================== */
+function speak(text) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.rate = 0.9;
+    u.pitch = 1.1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch (e) { /* 无语音环境时静默降级，绝不报错 */ }
+}
+
+/* =====================================================
+ * 星星计数（localStorage 持久累计）
+ * ===================================================== */
+const STAR_KEY = 'animalParkStars';
+function getStars() {
+  try { return parseInt(localStorage.getItem(STAR_KEY) || '0', 10) || 0; }
+  catch (e) { return 0; }
+}
+function addStars(n) {
+  try { localStorage.setItem(STAR_KEY, String(getStars() + n)); } catch (e) {}
+  updateStarUI();
+}
+function updateStarUI() {
+  const n = getStars();
+  document.querySelectorAll('.star-count').forEach(function (el) { el.textContent = n; });
+}
+
+/* =====================================================
+ * 撒花 / 星星奖励动效
+ * ===================================================== */
+function confetti(count) {
+  const layer = document.getElementById('confetti-layer');
+  const glyphs = ['⭐', '🌟', '✨', '🎉', '💖'];
+  const n = count || 26;
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
+    el.style.left = (Math.random() * 96) + 'vw';
+    el.style.fontSize = (22 + Math.random() * 30) + 'px';
+    el.style.animationDelay = (Math.random() * 0.45) + 's';
+    el.style.animationDuration = (1.5 + Math.random() * 1.3) + 's';
+    layer.appendChild(el);
+    setTimeout(function () { el.remove(); }, 3400);
+  }
+}
+
+/* =====================================================
+ * 屏幕切换与工具
+ * ===================================================== */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function (s) {
+    s.classList.toggle('active', s.id === id);
+  });
+}
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+function pickAnimals(n) { return shuffle(ANIMALS).slice(0, n); }
+const PRAISES = ['太棒了！', '你真厉害！', '答对啦，真聪明！', '好棒哦！'];
+function randomPraise() { return PRAISES[Math.floor(Math.random() * PRAISES.length)]; }
+
+/* =====================================================
+ * 首页入口
+ * ===================================================== */
+document.getElementById('entry-toddler').addEventListener('pointerdown', function () {
+  showScreen('screen-toddler');
+});
+document.getElementById('entry-brother').addEventListener('pointerdown', function () {
+  updateStarUI();
+  showScreen('screen-brother');
+});
+document.getElementById('brother-home').addEventListener('pointerdown', function () {
+  showScreen('screen-home');
+});
+
+/* =====================================================
+ * 弟弟模式：拍拍乐园
+ * 任意位置拍一下 → 弹出随机大动物 + 音效 + 语音念名字
+ * 屏幕上最多保留最近 6 个，更旧的淡出移除
+ * ===================================================== */
+const toddlerField = document.getElementById('toddler-field');
+const MAX_POP = 6;
+
+toddlerField.addEventListener('pointerdown', function (e) {
+  spawnAnimal(e.clientX, e.clientY);
+});
+document.getElementById('toddler-home').addEventListener('pointerdown', function (e) {
+  e.stopPropagation(); // 不触发拍打
+  toddlerField.querySelectorAll('.pop-animal').forEach(function (el) { el.remove(); });
+  showScreen('screen-home');
+});
+
+function spawnAnimal(x, y) {
+  const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
+  const size = 72 + Math.floor(Math.random() * 69); // 72–140px
+  const el = document.createElement('div');
+  el.className = 'pop-animal';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  const emoji = document.createElement('span');
+  emoji.className = 'pa-emoji';
+  emoji.style.fontSize = size + 'px';
+  emoji.textContent = animal.emoji;
+  const label = document.createElement('span');
+  label.className = 'pa-name';
+  label.textContent = animal.name;
+  el.appendChild(emoji);
+  el.appendChild(label);
+
+  // 点已有动物：再叫一次 + 跳一下
+  el.addEventListener('pointerdown', function (ev) {
+    ev.stopPropagation();
+    el.classList.remove('jump');
+    void el.offsetWidth; // 重置动画
+    el.classList.add('jump');
+    playAnimalSound(animal);
+    speak(animal.name);
+  });
+
+  toddlerField.appendChild(el);
+
+  // 只保留最近 MAX_POP 个，更旧的淡出移除
+  const items = toddlerField.querySelectorAll('.pop-animal');
+  if (items.length > MAX_POP) {
+    const old = items[0];
+    old.classList.add('fade-out');
+    setTimeout(function () { old.remove(); }, 650);
+  }
+
+  playAnimalSound(animal);
+  speak(animal.name);
+}
+
+/* =====================================================
+ * 哥哥模式：菜单入口
+ * ===================================================== */
+document.getElementById('menu-find').addEventListener('pointerdown', startFindGame);
+document.getElementById('menu-count').addEventListener('pointerdown', startCountGame);
+document.getElementById('menu-memory').addEventListener('pointerdown', startMemoryGame);
+
+/* =====================================================
+ * 游戏 1：听音找动物（5 题一轮，点对 +1 星）
+ * ===================================================== */
+const findState = { round: 0, stars: 0, target: null, locked: false };
+const findOptions = document.getElementById('find-options');
+
+function startFindGame() {
+  findState.round = 0;
+  findState.stars = 0;
+  document.getElementById('find-summary').classList.remove('show');
+  showScreen('screen-find');
+  nextFindRound();
+}
+
+function nextFindRound() {
+  findState.round++;
+  if (findState.round > 5) { showFindSummary(); return; }
+  findState.locked = false;
+  document.getElementById('find-round').textContent = findState.round;
+
+  // 随机 3 个不同动物，其中 1 个为目标
+  const trio = pickAnimals(3);
+  findState.target = trio[Math.floor(Math.random() * 3)];
+
+  findOptions.innerHTML = '';
+  trio.forEach(function (animal, i) {
+    const btn = document.createElement('button');
+    btn.className = 'animal-option opt-c' + i;
+    btn.textContent = animal.emoji;
+    btn.setAttribute('aria-label', animal.name);
+    btn.addEventListener('pointerdown', function () { onFindPick(btn, animal); });
+    findOptions.appendChild(btn);
+  });
+
+  // 稍作停顿再出题（等上一个语音说完）
+  setTimeout(playFindPrompt, 500);
+}
+
+function playFindPrompt() {
+  if (!findState.target) return;
+  playAnimalSound(findState.target);
+  speak('找一找，' + findState.target.name + '在哪里？');
+}
+document.getElementById('find-replay').addEventListener('pointerdown', playFindPrompt);
+
+function onFindPick(btn, animal) {
+  if (findState.locked) return;
+  if (animal.id === findState.target.id) {
+    findState.locked = true;
+    findState.stars++;
+    addStars(1);
+    btn.classList.add('correct');
+    confetti(18);
+    speak(randomPraise());
+    setTimeout(nextFindRound, 1500);
+  } else {
+    // 温和提示：晃一晃 + 语音鼓励，绝不惩罚
+    btn.classList.remove('shake');
+    void btn.offsetWidth;
+    btn.classList.add('shake');
+    speak('再试试看');
+  }
+}
+
+function showFindSummary() {
+  document.getElementById('find-summary-text').innerHTML =
+    '本轮得到 ' + findState.stars + ' 颗 ⭐<br>共 5 题，真棒！';
+  document.getElementById('find-summary').classList.add('show');
+  confetti(30);
+  speak('本轮得到 ' + findState.stars + ' 颗星星，' + randomPraise());
+}
+document.getElementById('find-again').addEventListener('pointerdown', startFindGame);
+document.getElementById('find-quit').addEventListener('pointerdown', function () {
+  document.getElementById('find-summary').classList.remove('show');
+  showScreen('screen-brother');
+});
+document.getElementById('find-back').addEventListener('pointerdown', function () {
+  showScreen('screen-brother');
+});
+
+/* =====================================================
+ * 游戏 2：数一数（1–5 只动物，5 题一轮，点对 +1 星）
+ * ===================================================== */
+const countState = { round: 0, stars: 0, answer: 0, animal: null, locked: false };
+const countField = document.getElementById('count-field');
+const countNumbers = document.getElementById('count-numbers');
+
+function startCountGame() {
+  countState.round = 0;
+  countState.stars = 0;
+  document.getElementById('count-summary').classList.remove('show');
+  showScreen('screen-count');
+  nextCountRound();
+}
+
+function nextCountRound() {
+  countState.round++;
+  if (countState.round > 5) { showCountSummary(); return; }
+  countState.locked = false;
+  document.getElementById('count-round').textContent = countState.round;
+
+  // 随机 1 种动物、1–5 只
+  countState.animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
+  countState.answer = 1 + Math.floor(Math.random() * 5);
+
+  // 依次弹出小动物
+  countField.innerHTML = '';
+  for (let i = 0; i < countState.answer; i++) {
+    const el = document.createElement('span');
+    el.className = 'count-animal';
+    el.textContent = countState.animal.emoji;
+    el.style.animationDelay = (i * 0.18) + 's';
+    countField.appendChild(el);
+  }
+  document.getElementById('count-question').textContent =
+    '数一数，有几只' + countState.animal.name + '？';
+
+  // 3 个数字按钮：正确答案 + 2 个干扰项
+  const pool = shuffle([1, 2, 3, 4, 5, 6].filter(function (n) { return n !== countState.answer; }));
+  const choices = shuffle([countState.answer, pool[0], pool[1]]);
+  countNumbers.innerHTML = '';
+  choices.forEach(function (n, i) {
+    const btn = document.createElement('button');
+    btn.className = 'num-btn num-c' + i;
+    const digit = document.createElement('span');
+    digit.textContent = n;
+    const cn = document.createElement('span');
+    cn.className = 'cn';
+    cn.textContent = CN_NUM[n];
+    btn.appendChild(digit);
+    btn.appendChild(cn);
+    btn.addEventListener('pointerdown', function () { onCountPick(btn, n); });
+    countNumbers.appendChild(btn);
+  });
+
+  setTimeout(playCountPrompt, 600);
+}
+
+function playCountPrompt() {
+  if (!countState.animal) return;
+  speak('数一数，有几只' + countState.animal.name + '？');
+}
+document.getElementById('count-replay').addEventListener('pointerdown', playCountPrompt);
+
+function onCountPick(btn, n) {
+  if (countState.locked) return;
+  if (n === countState.answer) {
+    countState.locked = true;
+    countState.stars++;
+    addStars(1);
+    btn.classList.add('correct');
+    confetti(18);
+    playAnimalSound(countState.animal);
+    speak(randomPraise());
+    setTimeout(nextCountRound, 1500);
+  } else {
+    btn.classList.remove('shake');
+    void btn.offsetWidth;
+    btn.classList.add('shake');
+    speak('再试试看');
+  }
+}
+
+function showCountSummary() {
+  document.getElementById('count-summary-text').innerHTML =
+    '本轮得到 ' + countState.stars + ' 颗 ⭐<br>共 5 题，真棒！';
+  document.getElementById('count-summary').classList.add('show');
+  confetti(30);
+  speak('本轮得到 ' + countState.stars + ' 颗星星，' + randomPraise());
+}
+document.getElementById('count-again').addEventListener('pointerdown', startCountGame);
+document.getElementById('count-quit').addEventListener('pointerdown', function () {
+  document.getElementById('count-summary').classList.remove('show');
+  showScreen('screen-brother');
+});
+document.getElementById('count-back').addEventListener('pointerdown', function () {
+  showScreen('screen-brother');
+});
+
+/* =====================================================
+ * 游戏 3：动物配对（3 对记忆翻牌，全对 +3 星）
+ * ===================================================== */
+const memState = { first: null, lock: false, matched: 0 };
+const memoryGrid = document.getElementById('memory-grid');
+
+function startMemoryGame() {
+  memState.first = null;
+  memState.lock = false;
+  memState.matched = 0;
+  document.getElementById('memory-summary').classList.remove('show');
+  showScreen('screen-memory');
+
+  // 每局随机 3 种动物 ×2，洗牌
+  const trio = pickAnimals(3);
+  const deck = shuffle(trio.concat(trio));
+
+  memoryGrid.innerHTML = '';
+  deck.forEach(function (animal) {
+    const card = document.createElement('button');
+    card.className = 'mem-card';
+    card.dataset.id = animal.id;
+    const inner = document.createElement('div');
+    inner.className = 'mem-inner';
+    const front = document.createElement('div');
+    front.className = 'mem-face mem-front';
+    front.textContent = '?';
+    const back = document.createElement('div');
+    back.className = 'mem-face mem-back';
+    back.textContent = animal.emoji;
+    inner.appendChild(front);
+    inner.appendChild(back);
+    card.appendChild(inner);
+    card.addEventListener('pointerdown', function () { onFlip(card, animal); });
+    memoryGrid.appendChild(card);
+  });
+}
+
+function onFlip(card, animal) {
+  if (memState.lock) return;
+  if (card.classList.contains('flipped')) return;
+
+  card.classList.add('flipped');
+  playAnimalSound(animal);
+
+  if (!memState.first) {
+    memState.first = { card: card, animal: animal };
+    return;
+  }
+
+  const first = memState.first;
+  memState.first = null;
+
+  if (first.animal.id === animal.id) {
+    // 配对成功：弹跳 + 念名字
+    first.card.classList.add('matched');
+    card.classList.add('matched');
+    speak(animal.name);
+    memState.matched++;
+    if (memState.matched === 3) {
+      // 全部配对完成：+3 星 + 撒花
+      addStars(3);
+      setTimeout(function () {
+        document.getElementById('memory-summary').classList.add('show');
+        confetti(36);
+        speak('全部配对成功，' + randomPraise());
+      }, 700);
+    }
+  } else {
+    // 没配对：翻回去
+    memState.lock = true;
+    setTimeout(function () {
+      first.card.classList.remove('flipped');
+      card.classList.remove('flipped');
+      memState.lock = false;
+    }, 900);
+  }
+}
+document.getElementById('memory-again').addEventListener('pointerdown', startMemoryGame);
+document.getElementById('memory-quit').addEventListener('pointerdown', function () {
+  document.getElementById('memory-summary').classList.remove('show');
+  showScreen('screen-brother');
+});
+document.getElementById('memory-back').addEventListener('pointerdown', function () {
+  showScreen('screen-brother');
+});
+
+/* 初始化星星显示 */
+updateStarUI();
+</script>
+</body>
+</html>
