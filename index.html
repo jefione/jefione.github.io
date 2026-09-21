@@ -1155,6 +1155,13 @@ updateStarUI();
 /* 注册离线缓存 Service Worker（失败静默降级，不影响游戏） */
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(function () {});
+  /* 新版本接管时自动刷新一次，避免停留在旧缓存 */
+  var swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (swReloaded) return;
+    swReloaded = true;
+    location.reload();
+  });
 }
 </script>
 </body>
