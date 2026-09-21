@@ -1,11 +1,15 @@
 /* 小动物乐园离线缓存 Service Worker
  * 首次访问时缓存全部资源，之后断网也能玩 */
-const CACHE = 'animal-park-v1';
+const CACHE = 'animal-park-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icon.svg'
+  './icon.svg',
+  './sounds-data-1.js',
+  './sounds-data-2.js',
+  './sounds-data-3.js',
+  './sounds-data-4.js'
 ];
 
 self.addEventListener('install', function (e) {

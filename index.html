@@ -591,6 +591,10 @@
   <!-- 撒花层 -->
   <div id="confetti-layer"></div>
 
+<script src="sounds-data-1.js"></script>
+<script src="sounds-data-2.js"></script>
+<script src="sounds-data-3.js"></script>
+<script src="sounds-data-4.js"></script>
 <script>
 'use strict';
 
@@ -704,6 +708,24 @@ const SOUND_RECIPES = {
 };
 
 function playAnimalSound(animal) {
+  /* 优先播放真实叫声录音（SOUND_DATA 来自 sounds-data.js）；
+   * 缺失或播放失败时静默降级为合成音效 */
+  if (window.SOUND_DATA && window.SOUND_DATA[animal.id]) {
+    try {
+      const clip = new Audio(window.SOUND_DATA[animal.id]);
+      clip.volume = 0.9;
+      const p = clip.play();
+      if (p && typeof p.catch === 'function') {
+        p.then(function () { return; }).catch(function () { playSynthSound(animal); });
+      }
+      return;
+    } catch (e) { /* 落入合成兜底 */ }
+  }
+  playSynthSound(animal);
+}
+
+/* 合成音效兜底（原振荡器逻辑） */
+function playSynthSound(animal) {
   ensureAudio();
   const recipe = SOUND_RECIPES[animal.id];
   if (!recipe) return;
