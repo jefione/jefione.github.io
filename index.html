@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <!-- 触屏适配：禁止缩放，适配平板/手机 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<!-- PWA：离线可玩 + iPad 主屏幕全屏 -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FFF7EA">
 <title>小动物乐园</title>
 <style>
   /* ========== 基础与重置 ========== */
@@ -1123,6 +1129,11 @@ document.getElementById('memory-back').addEventListener('pointerdown', function 
 
 /* 初始化星星显示 */
 updateStarUI();
+
+/* 注册离线缓存 Service Worker（失败静默降级，不影响游戏） */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(function () {});
+}
 </script>
 </body>
 </html>

@@ -1,0 +1,13 @@
+{
+  "name": "小动物乐园",
+  "short_name": "小动物乐园",
+  "description": "给 1岁9个月弟弟和 5岁哥哥玩的动物小游戏",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#FFF7EA",
+  "theme_color": "#FFF7EA",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
